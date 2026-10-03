@@ -1,0 +1,90 @@
+:root {
+    --primary: #2c2523;
+    --accent: #d4a373;
+    --bg-light: #f4f6f8;
+    --sidebar-bg: #1e1e2d;
+    --sidebar-text: #a2a3b7;
+    --white: #ffffff;
+    --text: #3f4254;
+    --border: #ebedf3;
+    --danger: #f64e60;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Montserrat', sans-serif; }
+body { background-color: var(--bg-light); color: var(--text); height: 100vh; overflow: hidden; }
+
+/* Кнопки */
+button { cursor: pointer; border: none; font-weight: 600; border-radius: 6px; padding: 0.6rem 1.2rem; transition: all 0.3s; }
+.btn-primary { background: var(--accent); color: var(--white); }
+.btn-primary:hover { opacity: 0.9; }
+.btn-secondary { background: #e4e6ef; color: var(--text); }
+.btn-secondary:hover { background: #d3d6e4; }
+.btn-danger { background: var(--danger); color: var(--white); }
+.btn-danger:hover { opacity: 0.9; }
+
+/* Логин экран */
+.login-screen {
+    height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--primary), #4a3f3a);
+}
+.admin-card {
+    background: var(--white); padding: 2.5rem; border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2); width: 100%; max-width: 400px;
+    display: flex; flex-direction: column; gap: 1rem; text-align: center;
+}
+.admin-card h2 { margin-bottom: 1rem; color: var(--primary); }
+input, select, textarea {
+    padding: 0.8rem; border: 1px solid var(--border); border-radius: 6px;
+    width: 100%; outline: none; font-size: 0.95rem;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+
+/* Дашборд Layout */
+.dashboard { display: flex; height: 100vh; }
+
+/* Сайдбар */
+.sidebar {
+    width: 260px; background: var(--sidebar-bg); color: var(--sidebar-text);
+    display: flex; flex-direction: column; transition: all 0.3s;
+}
+.sidebar-header { padding: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.sidebar-header h2 { color: var(--white); font-size: 1.5rem; }
+.sidebar-header span { color: var(--accent); }
+.sidebar-nav { padding: 1.5rem 0; flex-grow: 1; display: flex; flex-direction: column; gap: 0.5rem; }
+.nav-btn {
+    background: transparent; color: var(--sidebar-text); text-align: left;
+    padding: 1rem 1.5rem; border-radius: 0; font-size: 1rem; font-weight: 500;
+}
+.nav-btn:hover, .nav-btn.active { background: #1b1b28; color: var(--accent); border-right: 3px solid var(--accent); }
+.sidebar-footer { padding: 1.5rem; border-top: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 1rem; }
+.staff-email { font-size: 0.85rem; word-break: break-all; }
+
+/* Главный контент */
+.main-content { flex-grow: 1; padding: 2rem; overflow-y: auto; }
+.content-section { display: none; animation: fadeIn 0.3s ease; }
+.content-section.active { display: block; }
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+
+/* Таблицы */
+.table-container { background: var(--white); border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); overflow: hidden; }
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th, .data-table td { padding: 1rem 1.5rem; text-align: left; border-bottom: 1px solid var(--border); }
+.data-table th { background: #f9f9f9; font-weight: 600; color: #b5b5c3; font-size: 0.85rem; text-transform: uppercase; }
+.data-table tr:hover { background: #fdfdfd; }
+.product-thumb { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; }
+.status-badge { padding: 0.3rem 0.6rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+.status-new { background: #e1f0ff; color: #3699ff; }
+
+/* Модалка */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center;
+    opacity: 0; visibility: hidden; transition: all 0.3s; z-index: 1000;
+}
+.modal-overlay.active { opacity: 1; visibility: visible; }
+.modal-content { background: var(--white); padding: 2rem; border-radius: 12px; width: 90%; max-width: 500px; }
+.modal-content h3 { margin-bottom: 1.5rem; color: var(--primary); }
+#add-product-form { display: flex; flex-direction: column; gap: 1rem; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1rem; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
