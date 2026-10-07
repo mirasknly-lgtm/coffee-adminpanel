@@ -2,7 +2,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/fireba
 import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
-// ВСТАВЬ СВОИ КЛЮЧИ СЮДА
 const firebaseConfig = {
   apiKey: "ТВОЙ_API_KEY",
   authDomain: "craft-coffee-app.firebaseapp.com",
@@ -16,7 +15,6 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// Элементы UI
 const loginScreen = document.getElementById('login-screen');
 const dashboard = document.getElementById('dashboard');
 const loginForm = document.getElementById('admin-login-form');
@@ -34,7 +32,218 @@ const closeModalBtn = document.getElementById('close-modal-btn');
 const addProductForm = document.getElementById('add-product-form');
 const refreshOrdersBtn = document.getElementById('refresh-orders');
 
-// --- 1. АВТОРИЗАЦИЯ ---
+// Обработка кнопки показа пароля
+document.addEventListener('click', (e) => {
+    if (e.target.closest('.toggle-password')) {
+        const btn = e.target.closest('.toggle-password');
+        const input = document.getElementById(btn.dataset.target);
+        if (input.type === 'password') {
+            input.type = 'text';
+            btn.textContent = '🔒';
+        } else {
+            input.type = 'password';
+            btn.textContent = '👁️';
+        }
+    }
+});
+
+// --- 1. АВТОРИЗАЦИЯ И СЕССИЯ ---
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        loginScreen.style.display = 'none';
+        dashboard.style.display = 'flex';
+        staffEmailSpan.textContent = user.email;
+        loadMenu();
+        loadOrders();
+    } else {
+        loginScreen.style.display = 'flex';
+        dashboard.style.display = 'none';
+    }
+});
+
+loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('admin-email').value;
+    const password = document.getElementById('admin-password').value;
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+        alert("Ошибка входа. Проверьте логин и пароль.");
+    }
+});
+
+logoutBtn.addEventListener('click', () => signOut(auth));
+
+// --- 2. НАВИГАЦИЯ ---
+navBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        navBtns.forEach(b => b.classList.remove('active'));
+        sections.forEach(s => s.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(`${btn.dataset.target}-section`).classList.add('active');
+    });
+});
+
+// --- 3. УПРАВЛЕНИЕ МЕНЮ ---
+async function loadMenu() {
+    menuTbody.innerHTML = '<tr><td colspan="5">Загрузка...</td></tr>';
+    try {
+        const snapshot = await getDocs(collection(db, 'products'));
+        menuTbody.innerHTML = '';
+        snapshot.forEach(document => {
+            const product = document.data();
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><img src="${product.image}" class="product-thumb" alt="Product"></td>
+                <td><strong>${product.name}</strong></td>
+                <td>${product.category === 'coffee' ? 'Кофе' : 'Десерт'}</td>
+                <td>${product.price} ₸</td>
+                <td><button class="btn-danger delete-btn" data-id="${document.id}">Удалить</button></td>
+            `;
+            menuTbody.appendChild(tr);
+        });
+
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                if (confirm('Удалить этот товар из меню для всех клиентов?')) {
+                    try {
+                        await deleteDoc(doc(db, 'products', e.target.dataset.id));
+                        alert('Товар успешно удален.');
+                        loadMenu(); 
+                    } catch (error) {
+                        console.error(error);
+                        alert('Ошибка при удалении товара.');
+                    }
+                }
+            });
+        });
+    } catch (error) {
+        console.error("Ошибка загрузки меню", error);
+    }
+}
+
+addProductBtn.addEventListener('click', () => productModal.classList.add('active'));
+closeModalBtn.addEventListener('click', () => productModal.classList.remove('active'));
+
+addProductForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const name = document.getElementById('prod-name').value.trim();
+    const price = Number(document.getElementById('prod-price').value);
+    
+    if (!name) return alert("Название товара не может быть пустым.");
+    if (price <= 0) return alert("Цена должна быть больше нуля.");
+
+    const newProduct = {
+        name,
+        category: document.getElementById('prod-category').value,
+        price,
+        description: document.getElementById('prod-desc').value.trim(),
+        image: document.getElementById('prod-image').value.trim()
+    };
+
+    const submitBtn = addProductForm.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+
+    try {
+        await addDoc(collection(db, 'products'), newProduct);
+        productModal.classList.remove('active');
+        addProductForm.reset();
+        alert('Товар успешно добавлен!');
+        loadMenu(); 
+    } catch (error) {
+        alert("Ошибка при добавлении товара");
+        console.error(error);
+    } finally {
+        submitBtn.disabled = false;
+    }
+});
+
+// --- 4. УПРАВЛЕНИЕ ЗАКАЗАМИ ---
+async function loadOrders() {
+    ordersTbody.innerHTML = '<tr><td colspan="5">Загрузка...</td></tr>';
+    try {
+        const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        ordersTbody.innerHTML = '';
+        
+        if (snapshot.empty) {
+            ordersTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Нет заказов</td></tr>';
+            return;
+        }
+
+        snapshot.forEach(document => {
+            const order = document.data();
+            const orderId = document.id;
+            const tr = document.createElement('tr');
+            
+            const currentStatus = order.status || 'new';
+            // Серый фон для завершенных заказов
+            if (currentStatus === 'completed') {
+                tr.style.backgroundColor = '#f5f5f5';
+                tr.style.opacity = '0.7';
+            }
+
+            // Красивое форматирование даты
+            let timeString = 'Нет времени';
+            if (order.createdAt) {
+                const dateObj = order.createdAt.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+                timeString = new Intl.DateTimeFormat('ru-RU', { 
+                    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' 
+                }).format(dateObj);
+            }
+
+            const itemsList = order.items ? order.items.map(i => `${i.product.name} (x${i.quantity})`).join('<br>') : 'Пусто';
+
+            tr.innerHTML = `
+                <td>
+                    <strong>#${orderId.slice(0, 5).toUpperCase()}</strong><br>
+                    <small style="color: #888;">${timeString}</small>
+                </td>
+                <td>
+                    ${order.userEmail || 'Гость'}<br>
+                    <small style="color: #666;">${itemsList}</small>
+                </td>
+                <td><strong>${order.total} ₸</strong></td>
+                <td>
+                    <select class="status-select" data-id="${orderId}" style="padding: 0.3rem; border-radius: 4px;">
+                        <option value="new" ${currentStatus === 'new' ? 'selected' : ''}>🔴 Новый</option>
+                        <option value="preparing" ${currentStatus === 'preparing' ? 'selected' : ''}>🟡 Готовится</option>
+                        <option value="ready" ${currentStatus === 'ready' ? 'selected' : ''}>🟢 Готов к выдаче</option>
+                        <option value="completed" ${currentStatus === 'completed' ? 'selected' : ''}>⚪ Выдан</option>
+                    </select>
+                </td>
+                <td><button class="btn-secondary">Детали</button></td>
+            `;
+            ordersTbody.appendChild(tr);
+        });
+
+        document.querySelectorAll('.status-select').forEach(select => {
+            select.addEventListener('change', async (e) => {
+                const orderId = e.target.dataset.id;
+                const newStatus = e.target.value;
+                try {
+                    await updateDoc(doc(db, 'orders', orderId), { status: newStatus });
+                    alert('Статус заказа обновлен.');
+                    loadOrders(); // Перерисовываем для обновления стилей
+                } catch (error) {
+                    console.error("Ошибка обновления статуса", error);
+                    alert("Не удалось обновить статус!");
+                    e.target.value = e.target.dataset.oldValue; // Откат UI
+                }
+            });
+            // Сохраняем предыдущее значение для отката при ошибке
+            select.addEventListener('focus', function() {
+                this.dataset.oldValue = this.value;
+            });
+        });
+
+    } catch (error) {
+        console.error("Ошибка загрузки заказов", error);
+    }
+}
+
+refreshOrdersBtn.addEventListener('click', loadOrders);// --- 1. АВТОРИЗАЦИЯ ---
 onAuthStateChanged(auth, (user) => {
     if (user) {
         loginScreen.style.display = 'none';
